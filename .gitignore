@@ -26,3 +26,7 @@ search_results.txt
 *.tmp
 *.temp
 temp/
+.coverage
+*.coverage
+htmlcov/
+.pytest_cache/
