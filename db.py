@@ -1,13 +1,15 @@
 """
 数据库模块 - SQLite 用户系统、学情记录、聊天消息管理
 """
-import sqlite3
+
+import hashlib
 import json
 import os
-import hashlib
+import sqlite3
 from datetime import datetime
 from typing import List, Optional
 
+import bcrypt
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "learning_data.db")
 
@@ -96,11 +98,37 @@ def init_db():
 # 用户管理
 # ============================================================
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    """使用 bcrypt + salt 哈希密码"""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    """验证密码，兼容旧 SHA-256 和新 bcrypt 两种格式"""
+    # bcrypt 哈希以 $2b$ 开头
+    if password_hash.startswith("$2b$"):
+        return bcrypt.checkpw(password.encode(), password_hash.encode())
+    # 旧格式：SHA-256（兼容过渡期存量用户）
+    return hashlib.sha256(password.encode()).hexdigest() == password_hash
+
+
+def validate_password(password: str) -> Optional[str]:
+    """验证密码强度，返回错误信息或 None（表示通过）"""
+    if len(password) < 6:
+        return "密码至少 6 位"
+    if not any(c.isdigit() for c in password):
+        return "密码需包含数字"
+    if not any(c.isalpha() for c in password):
+        return "密码需包含字母"
+    return None
 
 
 def register_user(username: str, password: str, role: str) -> tuple[bool, str]:
     """注册用户，返回 (成功, 消息)"""
+    # 密码强度校验
+    err = validate_password(password)
+    if err:
+        return False, err
+
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -117,17 +145,24 @@ def register_user(username: str, password: str, role: str) -> tuple[bool, str]:
 
 
 def login_user(username: str, password: str) -> Optional[dict]:
-    """登录验证，成功返回用户信息字典，失败返回 None"""
+    """登录验证，成功返回用户信息字典，失败返回 None（兼容旧 SHA-256 自动升级）"""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM users WHERE username = ? AND password_hash = ?",
-        (username, _hash_password(password)),
-    )
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
+    if row and _verify_password(password, row["password_hash"]):
+        user = dict(row)
+        # 自动升级旧格式密码
+        if not user["password_hash"].startswith("$2b$"):
+            new_hash = _hash_password(password)
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (new_hash, user["id"]),
+            )
+            conn.commit()
+        conn.close()
+        return user
     conn.close()
-    if row:
-        return dict(row)
     return None
 
 
@@ -153,7 +188,9 @@ def get_teacher_id() -> Optional[int]:
 def get_all_students() -> List[dict]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, created_at FROM users WHERE role = 'student' ORDER BY username")
+    cursor.execute(
+        "SELECT id, username, created_at FROM users WHERE role = 'student' ORDER BY username"
+    )
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -162,7 +199,9 @@ def get_all_students() -> List[dict]:
 def get_all_teachers() -> List[dict]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, created_at FROM users WHERE role = 'teacher' ORDER BY username")
+    cursor.execute(
+        "SELECT id, username, created_at FROM users WHERE role = 'teacher' ORDER BY username"
+    )
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -187,8 +226,13 @@ def get_last_message_between(user_id_1: int, user_id_2: int) -> Optional[dict]:
 # ============================================================
 # 习题管理
 # ============================================================
-def save_exercise(teacher_id: int, question: str, standard_answer_points: str,
-                  total_max_score: float, pdf_source: str = "") -> int:
+def save_exercise(
+    teacher_id: int,
+    question: str,
+    standard_answer_points: str,
+    total_max_score: float,
+    pdf_source: str = "",
+) -> int:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -222,9 +266,15 @@ def get_exercise_by_id(exercise_id: int) -> Optional[dict]:
 # ============================================================
 # 答题记录
 # ============================================================
-def save_exam_record(question: str, standard_answer_points: str, student_answer: str,
-                     grading_result: dict, student_name: str = "匿名学生",
-                     student_id: int = None, exercise_id: int = None) -> int:
+def save_exam_record(
+    question: str,
+    standard_answer_points: str,
+    student_answer: str,
+    grading_result: dict,
+    student_name: str = "匿名学生",
+    student_id: int = None,
+    exercise_id: int = None,
+) -> int:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -233,8 +283,12 @@ def save_exam_record(question: str, standard_answer_points: str, student_answer:
          student_answer, step_scores, logic_score, total_score, feedback, weak_tags)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            student_id, student_name, exercise_id,
-            question, standard_answer_points, student_answer,
+            student_id,
+            student_name,
+            exercise_id,
+            question,
+            standard_answer_points,
+            student_answer,
             json.dumps(grading_result.get("step_scores", []), ensure_ascii=False),
             grading_result.get("logic_score", 0),
             grading_result.get("total_score", 0),
@@ -289,9 +343,7 @@ def get_student_error_statistics(student_id: int) -> List[dict]:
     """获取某个学生的薄弱知识点统计"""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT weak_tags FROM exam_records WHERE student_id = ?", (student_id,)
-    )
+    cursor.execute("SELECT weak_tags FROM exam_records WHERE student_id = ?", (student_id,))
     rows = cursor.fetchall()
     conn.close()
     tag_counts = {}
@@ -314,8 +366,14 @@ def get_total_exam_count() -> int:
 # ============================================================
 # 聊天消息
 # ============================================================
-def send_message(sender_id: int, receiver_id: int, content: str = "",
-                 file_path: str = "", file_name: str = "", file_type: str = "") -> int:
+def send_message(
+    sender_id: int,
+    receiver_id: int,
+    content: str = "",
+    file_path: str = "",
+    file_name: str = "",
+    file_type: str = "",
+) -> int:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(

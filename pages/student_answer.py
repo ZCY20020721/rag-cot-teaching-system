@@ -2,6 +2,7 @@
 学生端 — 习题作答页面
 查看教师发布的习题，提交答案，获取 CoT 分步批改反馈
 """
+
 import json
 
 import streamlit as st
@@ -31,9 +32,11 @@ def page_student_answer():
         st.subheader(exercise["question"])
         st.caption(f"满分：{exercise['total_max_score']} 分")
         with st.expander("查看提示"):
-            pts = json.loads(exercise['standard_answer_points']) if isinstance(
-                exercise['standard_answer_points'], str
-            ) else exercise['standard_answer_points']
+            pts = (
+                json.loads(exercise["standard_answer_points"])
+                if isinstance(exercise["standard_answer_points"], str)
+                else exercise["standard_answer_points"]
+            )
             st.write(f"本题包含 {len(pts)} 个得分点")
 
     student_answer = st.text_area("你的答案", height=180, placeholder="在此作答...")
@@ -50,9 +53,11 @@ def page_student_answer():
             if result:
                 st.session_state.grading_result = result
                 try:
-                    pts = json.loads(exercise['standard_answer_points']) if isinstance(
-                        exercise['standard_answer_points'], str
-                    ) else exercise['standard_answer_points']
+                    pts = (
+                        json.loads(exercise["standard_answer_points"])
+                        if isinstance(exercise["standard_answer_points"], str)
+                        else exercise["standard_answer_points"]
+                    )
                     save_exam_record(
                         question=exercise["question"],
                         standard_answer_points=exercise["standard_answer_points"],

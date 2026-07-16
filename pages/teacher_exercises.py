@@ -2,6 +2,7 @@
 教师端 — 习题生成页面
 基于教材 RAG 检索，AI 自动生成考题并发布
 """
+
 import json
 
 import streamlit as st
@@ -67,9 +68,11 @@ def page_teacher_exercises():
             with st.expander(f"[{ex['created_at']}] {ex['question'][:100]}..."):
                 st.write(f"**题目：** {ex['question']}")
                 st.write(f"**满分：** {ex['total_max_score']}")
-                pts = json.loads(ex['standard_answer_points']) if isinstance(
-                    ex['standard_answer_points'], str
-                ) else ex['standard_answer_points']
+                pts = (
+                    json.loads(ex["standard_answer_points"])
+                    if isinstance(ex["standard_answer_points"], str)
+                    else ex["standard_answer_points"]
+                )
                 st.write("**标准答案要点：**")
                 for pt in pts:
                     st.write(f"  - [{pt.get('tag', '')}] {pt.get('point', '')}")

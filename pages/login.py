@@ -2,7 +2,9 @@
 登录/注册页面
 支持教师/学生两种角色，登录与注册模式切换
 """
+
 import streamlit as st
+
 from db import login_user, register_user
 
 
@@ -14,9 +16,12 @@ def page_login():
     col_center = st.columns([1, 2, 1])
     with col_center[1]:
         mode = st.radio("选择操作", ["登录", "注册"], horizontal=True)
-        role = st.radio("选择角色", ["student", "teacher"],
-                       format_func=lambda x: "学生" if x == "student" else "教师",
-                       horizontal=True)
+        role = st.radio(
+            "选择角色",
+            ["student", "teacher"],
+            format_func=lambda x: "学生" if x == "student" else "教师",
+            horizontal=True,
+        )
         username = st.text_input("用户名")
         password = st.text_input("密码", type="password")
 
@@ -34,6 +39,7 @@ def page_login():
                         st.session_state.username = user["username"]
                         if user["role"] == "student":
                             from db import get_teacher_id
+
                             st.session_state.chat_with_id = get_teacher_id()
                         st.rerun()
                     else:
@@ -42,8 +48,8 @@ def page_login():
             if st.button("注册", type="primary", use_container_width=True):
                 if not username or not password:
                     st.error("请填写用户名和密码")
-                elif len(password) < 3:
-                    st.error("密码至少3位")
+                elif len(password) < 6:
+                    st.error("密码至少6位，需包含数字和字母")
                 else:
                     ok, msg = register_user(username, password, role)
                     if ok:

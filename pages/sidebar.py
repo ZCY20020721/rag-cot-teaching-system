@@ -2,6 +2,7 @@
 侧边栏导航模块
 根据用户角色动态渲染不同的菜单项
 """
+
 import streamlit as st
 
 
@@ -38,8 +39,12 @@ def render_sidebar(defaults: dict):
             }
 
         for label, key in pages.items():
-            if st.button(label, key=f"nav_{key}", use_container_width=True,
-                        type="primary" if st.session_state.get("page", "") == key else "secondary"):
+            if st.button(
+                label,
+                key=f"nav_{key}",
+                use_container_width=True,
+                type="primary" if st.session_state.get("page", "") == key else "secondary",
+            ):
                 st.session_state.page = key
                 st.session_state.current_question = None
                 st.session_state.grading_result = None

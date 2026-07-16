@@ -3,19 +3,15 @@
 微信风格消息气泡 + 表情选择器 + 文件传输
 支持文字、表情、图片、视频、文档、压缩包
 """
+
 import os
 from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
 
-from db import (
-    get_all_students,
-    get_all_teachers,
-    get_last_message_between,
-    get_messages,
-    send_message,
-)
+from db import (get_all_students, get_all_teachers, get_last_message_between,
+                get_messages, send_message)
 
 # ============================================================
 # 上传文件存储目录
@@ -23,20 +19,142 @@ from db import (
 UPLOAD_DIR = Path(__file__).parent.parent / "uploads" / "chat"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+
 # ============================================================
 # HTML 转义
 # ============================================================
 def _html_escape(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#x27;")
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#x27;")
+    )
 
 
 # ============================================================
 # 通用 emoji 列表
 # ============================================================
-EMOJI_SMILEYS = ["😀","😃","😄","😁","😆","😅","🤣","😂","😊","😇","🙂","😉","😌","😍","🥰","😘","😗","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🤫","🤔","🤐","🤨","😐","😑","😶","😏","😒","🙄","😬","😮","🤤","😪","😴","🥱"]
-EMOJI_GESTURES = ["👍","👎","👏","🙌","🤝","💪","✍️","🙏","💃","👋","🤙","👌","🤌","✌️","🤞","🤟","👆","👇","☝️","👉","👈","✋","🤚","🖐️","💅"]
-EMOJI_HEARTS = ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","♥️"]
-EMOJI_OBJECTS = ["📚","📝","✏️","💡","⭐","🔥","🎯","🏆","✅","❌","💯","📌","📎","🔗","🎓","💻","📱","⏰","📅","🗂️","📊","📈","🎉","🎊","🔔"]
+EMOJI_SMILEYS = [
+    "😀",
+    "😃",
+    "😄",
+    "😁",
+    "😆",
+    "😅",
+    "🤣",
+    "😂",
+    "😊",
+    "😇",
+    "🙂",
+    "😉",
+    "😌",
+    "😍",
+    "🥰",
+    "😘",
+    "😗",
+    "😋",
+    "😛",
+    "😜",
+    "🤪",
+    "😝",
+    "🤑",
+    "🤗",
+    "🤭",
+    "🤫",
+    "🤔",
+    "🤐",
+    "🤨",
+    "😐",
+    "😑",
+    "😶",
+    "😏",
+    "😒",
+    "🙄",
+    "😬",
+    "😮",
+    "🤤",
+    "😪",
+    "😴",
+    "🥱",
+]
+EMOJI_GESTURES = [
+    "👍",
+    "👎",
+    "👏",
+    "🙌",
+    "🤝",
+    "💪",
+    "✍️",
+    "🙏",
+    "💃",
+    "👋",
+    "🤙",
+    "👌",
+    "🤌",
+    "✌️",
+    "🤞",
+    "🤟",
+    "👆",
+    "👇",
+    "☝️",
+    "👉",
+    "👈",
+    "✋",
+    "🤚",
+    "🖐️",
+    "💅",
+]
+EMOJI_HEARTS = [
+    "❤️",
+    "🧡",
+    "💛",
+    "💚",
+    "💙",
+    "💜",
+    "🖤",
+    "🤍",
+    "🤎",
+    "💔",
+    "❣️",
+    "💕",
+    "💞",
+    "💓",
+    "💗",
+    "💖",
+    "💘",
+    "💝",
+    "💟",
+    "♥️",
+]
+EMOJI_OBJECTS = [
+    "📚",
+    "📝",
+    "✏️",
+    "💡",
+    "⭐",
+    "🔥",
+    "🎯",
+    "🏆",
+    "✅",
+    "❌",
+    "💯",
+    "📌",
+    "📎",
+    "🔗",
+    "🎓",
+    "💻",
+    "📱",
+    "⏰",
+    "📅",
+    "🗂️",
+    "📊",
+    "📈",
+    "🎉",
+    "🎊",
+    "🔔",
+]
 ALL_EMOJIS = EMOJI_SMILEYS + EMOJI_GESTURES + EMOJI_HEARTS + EMOJI_OBJECTS
 
 
@@ -81,7 +199,7 @@ def page_chat(is_teacher: bool):
         for contact in contacts:
             cid = contact["id"]
             cname = contact["username"]
-            is_active = (cid == partner_id)
+            is_active = cid == partner_id
 
             last_msg = get_last_message_between(my_id, cid)
             preview = ""
@@ -99,7 +217,8 @@ def page_chat(is_teacher: bool):
                         f"""<div style="width:36px;height:36px;border-radius:4px;
                         background:#07C160;color:white;text-align:center;line-height:36px;
                         font-size:16px;font-weight:bold;">{avatar_char}</div>""",
-                        unsafe_allow_html=True)
+                        unsafe_allow_html=True,
+                    )
                 with cols[1]:
                     st.markdown(f"**{cname}**")
                     if preview:
@@ -110,12 +229,16 @@ def page_chat(is_teacher: bool):
                         st.session_state.chat_with_id = cid
                         st.session_state.chat_with_name = cname
                         st.session_state.chat_refresh_key += 1
+
                     return _select
 
-                st.button("选择", key=f"contact_{cid}",
-                         type="primary" if is_active else "secondary",
-                         use_container_width=True,
-                         on_click=make_on_select())
+                st.button(
+                    "选择",
+                    key=f"contact_{cid}",
+                    type="primary" if is_active else "secondary",
+                    use_container_width=True,
+                    on_click=make_on_select(),
+                )
 
                 st.markdown("---")
 
@@ -182,9 +305,7 @@ def page_chat(is_teacher: bool):
         emoji_expander = st.expander("表情", expanded=False)
         with emoji_expander:
             emoji_tabs = st.tabs(["笑脸", "手势", "爱心", "物品"])
-            emoji_sets_data = [
-                EMOJI_SMILEYS, EMOJI_GESTURES, EMOJI_HEARTS, EMOJI_OBJECTS
-            ]
+            emoji_sets_data = [EMOJI_SMILEYS, EMOJI_GESTURES, EMOJI_HEARTS, EMOJI_OBJECTS]
             for tab, emojis in zip(emoji_tabs, emoji_sets_data):
                 with tab:
                     cols = st.columns(10)
@@ -209,15 +330,29 @@ def page_chat(is_teacher: bool):
         with col_send:
             st.write("")
             st.write("")
-            st.button("发送", type="primary", use_container_width=True,
-                      on_click=on_send_message)
+            st.button("发送", type="primary", use_container_width=True, on_click=on_send_message)
 
         # --- 文件上传 ---
         file_col1, file_col2 = st.columns([1, 3])
         with file_col1:
             uploaded_chat_file = st.file_uploader(
                 "发送文件/图片/视频",
-                type=["png","jpg","jpeg","gif","webp","mp4","mov","avi","pdf","docx","txt","zip","rar","pptx"],
+                type=[
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "gif",
+                    "webp",
+                    "mp4",
+                    "mov",
+                    "avi",
+                    "pdf",
+                    "docx",
+                    "txt",
+                    "zip",
+                    "rar",
+                    "pptx",
+                ],
                 key=f"chat_file_{st.session_state.chat_refresh_key}",
                 label_visibility="collapsed",
             )
@@ -238,10 +373,13 @@ def page_chat(is_teacher: bool):
             with open(saved_path, "wb") as f:
                 f.write(uploaded_chat_file.getbuffer())
 
-            send_message(my_id, partner_id,
-                        content=f"[{file_type}: {uploaded_chat_file.name}]",
-                        file_path=str(saved_path),
-                        file_name=uploaded_chat_file.name,
-                        file_type=file_type)
+            send_message(
+                my_id,
+                partner_id,
+                content=f"[{file_type}: {uploaded_chat_file.name}]",
+                file_path=str(saved_path),
+                file_name=uploaded_chat_file.name,
+                file_type=file_type,
+            )
             st.session_state.chat_refresh_key += 1
             st.rerun()

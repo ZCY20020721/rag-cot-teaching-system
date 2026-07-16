@@ -3,16 +3,18 @@ RAG 检索引擎 - 基于教材的检索增强生成
 支持 PDF 加载、文本切分、向量化存储、相似度检索
 使用本地 HuggingFace 嵌入模型，无需额外 API
 """
+
 import os
 from typing import List, Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
 class RAGEngine:

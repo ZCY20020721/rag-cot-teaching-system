@@ -2,6 +2,7 @@
 学生端 — 我的成绩页面
 查看历次答题得分记录与统计数据
 """
+
 import streamlit as st
 
 from db import get_student_records
@@ -24,9 +25,7 @@ def page_student_scores():
 
         st.divider()
         for r in records:
-            with st.expander(
-                f"[{r['created_at']}] {r['question'][:60]}... — {r['total_score']}分"
-            ):
+            with st.expander(f"[{r['created_at']}] {r['question'][:60]}... — {r['total_score']}分"):
                 st.write(f"**题目：** {r['question']}")
                 st.write(f"**你的答案：** {r['student_answer']}")
                 st.write(f"**总分：** {r['total_score']} | 逻辑分：{r['logic_score']}")

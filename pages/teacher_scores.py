@@ -2,6 +2,7 @@
 教师端 — 学生成绩页面
 查看所有学生的答题记录、成绩统计与薄弱知识点分布
 """
+
 import json
 
 import pandas as pd
@@ -35,7 +36,7 @@ def page_teacher_scores():
                 st.write(f"**答案：** {r['student_answer']}")
                 st.write(f"**总分：** {r['total_score']} | 逻辑分：{r['logic_score']}")
                 st.write(f"**反馈：** {r['feedback']}")
-                weak = json.loads(r['weak_tags']) if r['weak_tags'] else []
+                weak = json.loads(r["weak_tags"]) if r["weak_tags"] else []
                 if weak:
                     st.write(f"**薄弱点：** {'、'.join(weak)}")
     else:
@@ -46,9 +47,15 @@ def page_teacher_scores():
     error_stats = get_error_statistics()
     if error_stats:
         df = pd.DataFrame(error_stats)
-        fig = px.bar(df, x="tag", y="count", title="薄弱知识点分布",
-                    labels={"tag": "知识点", "count": "错误次数"},
-                    color="count", color_continuous_scale="Reds")
+        fig = px.bar(
+            df,
+            x="tag",
+            y="count",
+            title="薄弱知识点分布",
+            labels={"tag": "知识点", "count": "错误次数"},
+            color="count",
+            color_continuous_scale="Reds",
+        )
         fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True)
     else:

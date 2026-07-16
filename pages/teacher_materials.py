@@ -2,6 +2,7 @@
 教师端 — 教材管理页面
 上传 PDF 教材，构建 RAG 知识库
 """
+
 import os
 import tempfile
 from pathlib import Path
@@ -44,8 +45,7 @@ def page_teacher_materials():
                 for f in pdf_files:
                     st.write(f"- {f.name}")
                 selected = st.selectbox(
-                    "快速加载已有教材", pdf_files,
-                    format_func=lambda x: x.name[:60]
+                    "快速加载已有教材", pdf_files, format_func=lambda x: x.name[:60]
                 )
                 if st.button("加载选中文件"):
                     with st.spinner("正在处理..."):

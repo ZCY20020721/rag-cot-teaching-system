@@ -2,19 +2,22 @@
 CoT 智能批改引擎 - 基于思维链的分步评分
 支持结构化 Prompt、强制 JSON 解析、自动重试
 """
+
 import json
 import os
 from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import PydanticOutputParser
-from pydantic import BaseModel, Field
 from typing import List
 
-from prompts import QUESTION_GENERATION_PROMPT, COT_GRADING_PROMPT
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+from prompts import COT_GRADING_PROMPT, QUESTION_GENERATION_PROMPT
 
 
 # ============================================================
@@ -84,7 +87,9 @@ class CoTGrader:
             return result
         except json.JSONDecodeError:
             # 重试：要求严格遵守格式
-            retry_prompt = prompt + "\n\n【重要提醒】请只输出合法的 JSON，不要包裹在 markdown 代码块中。"
+            retry_prompt = (
+                prompt + "\n\n【重要提醒】请只输出合法的 JSON，不要包裹在 markdown 代码块中。"
+            )
             try:
                 response = self.llm.invoke(retry_prompt)
                 content = response.content.strip()
@@ -121,7 +126,9 @@ class CoTGrader:
             result = json.loads(content)
             return result
         except json.JSONDecodeError:
-            retry_prompt = prompt + "\n\n【重要提醒】请只输出合法的 JSON，不要包裹在 markdown 代码块中。"
+            retry_prompt = (
+                prompt + "\n\n【重要提醒】请只输出合法的 JSON，不要包裹在 markdown 代码块中。"
+            )
             try:
                 response = self.llm.invoke(retry_prompt)
                 content = response.content.strip()
