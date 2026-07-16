@@ -1,7 +1,7 @@
 # 基于 RAG 与 CoT 的智能教学评估系统
 
 > **Intelligent Teaching Assessment System based on RAG & CoT**  
-> 毕业设计项目 · BMSTU ИУ5-21М · 周宸宇
+> 毕业设计项目 · BMSTU ИУ5-21М · 周城羽
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.57+-red.svg)](https://streamlit.io/)
@@ -243,4 +243,4 @@ pytest tests/test_cot_grader.py -v
 
 ## 📄 License
 
-MIT © 2026 周宸宇 (Zhou Chengyu)
+MIT © 2026 周城羽 (Zhou Chengyu)
