@@ -1,0 +1,28 @@
+# 敏感信息
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+
+# 运行时数据
+chroma_db/
+uploads/
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# 参考文献与报告文件
+*.pdf
+*.docx
+*.doc
+search_results.txt
+
+# 临时文件
+*.tmp
+*.temp
+temp/
