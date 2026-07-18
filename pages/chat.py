@@ -14,6 +14,29 @@ from db import (get_all_students, get_all_teachers, get_last_message_between,
                 get_messages, send_message)
 
 # ============================================================
+# 聊天相关数据缓存（避免每次 Streamlit rerun 都查数据库）
+# ============================================================
+@st.cache_data(ttl=5)
+def _cached_students():
+    return get_all_students()
+
+
+@st.cache_data(ttl=5)
+def _cached_teachers():
+    return get_all_teachers()
+
+
+@st.cache_data(ttl=2)
+def _cached_last_message(user_a: int, user_b: int):
+    return get_last_message_between(user_a, user_b)
+
+
+@st.cache_data(ttl=2)
+def _cached_messages(user_a: int, user_b: int, limit: int = 200):
+    return get_messages(user_a, user_b, limit)
+
+
+# ============================================================
 # 上传文件存储目录
 # ============================================================
 UPLOAD_DIR = Path(__file__).parent.parent / "uploads" / "chat"
@@ -166,12 +189,12 @@ def page_chat(is_teacher: bool):
     my_id = st.session_state.user_id
     my_name = st.session_state.username
 
-    # 加载联系人列表
+    # 加载联系人列表（缓存 5 秒）
     if is_teacher:
-        contacts = get_all_students()
+        contacts = _cached_students()
         contact_label = "学生"
     else:
-        contacts = get_all_teachers()
+        contacts = _cached_teachers()
         contact_label = "教师"
 
     if not contacts:
@@ -201,7 +224,7 @@ def page_chat(is_teacher: bool):
             cname = contact["username"]
             is_active = cid == partner_id
 
-            last_msg = get_last_message_between(my_id, cid)
+            last_msg = _cached_last_message(my_id, cid)
             preview = ""
             if last_msg:
                 content = last_msg["content"] or "[文件]"
@@ -262,7 +285,7 @@ def page_chat(is_teacher: bool):
         # --- 消息显示区域（使用 fragment 自动刷新） ---
         @st.fragment(run_every=2)
         def render_messages():
-            messages = get_messages(my_id, partner_id, limit=200)
+            messages = _cached_messages(my_id, partner_id, limit=200)
             if messages:
                 for msg in messages:
                     is_me = msg["sender_id"] == my_id
@@ -308,18 +331,84 @@ def page_chat(is_teacher: bool):
             emoji_sets_data = [EMOJI_SMILEYS, EMOJI_GESTURES, EMOJI_HEARTS, EMOJI_OBJECTS]
             for tab, emojis in zip(emoji_tabs, emoji_sets_data):
                 with tab:
-                    cols = st.columns(10)
+                    # 每行 8 个，比 10 个更宽松，视觉上更居中
+                    per_row = 8
+                    cols = st.columns(per_row)
                     for i, emoji in enumerate(emojis):
-                        cols[i % 10].button(
+                        cols[i % per_row].button(
                             emoji,
                             key=f"emoji_{emoji}_{st.session_state.chat_refresh_key}",
                             on_click=on_emoji_click,
                             args=(emoji,),
                         )
 
-        # --- 输入区域 ---
-        col_text, col_send = st.columns([9, 1])
-        with col_text:
+        # --- 输入区域（与表情栏等宽） ---
+        # 注入 CSS：让加号/箭头按钮内容绝对居中，箭头背景为微信绿色
+        st.markdown(
+            """
+            <style>
+            /* 覆盖 Streamlit 主题色变量 */
+            :root {
+                --primary-color: #07C160 !important;
+            }
+
+            /* 发送箭头：绿色背景 + 白色文字 + 内容居中 */
+            button[kind="primary"],
+            button[kind="primary"]:hover,
+            button[kind="primary"]:active,
+            button[kind="primary"]:focus,
+            button[kind="primary"]:not(:disabled) {
+                background-color: #07C160 !important;
+                background-image: none !important;
+                color: #FFFFFF !important;
+                border-color: #07C160 !important;
+                box-shadow: none !important;
+                min-height: 40px !important;
+                height: 40px !important;
+                padding: 0px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 1.4rem !important;
+                line-height: 1 !important;
+            }
+            button[kind="primary"] * {
+                color: #FFFFFF !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* 加号按钮：内容居中 */
+            button[kind="secondary"],
+            button[kind="secondary"]:hover,
+            button[kind="secondary"]:active,
+            button[kind="secondary"]:focus {
+                min-height: 40px !important;
+                height: 40px !important;
+                padding: 0px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                font-size: 1.4rem !important;
+                line-height: 1 !important;
+            }
+            button[kind="secondary"] * {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        input_col, plus_col, send_col = st.columns([10, 1, 1])
+
+        with input_col:
             msg_text = st.text_area(
                 "消息",
                 key="chat_input_text",
@@ -327,16 +416,38 @@ def page_chat(is_teacher: bool):
                 label_visibility="collapsed",
                 height=68,
             )
-        with col_send:
-            st.write("")
-            st.write("")
-            st.button("发送", type="primary", use_container_width=True, on_click=on_send_message)
 
-        # --- 文件上传 ---
-        file_col1, file_col2 = st.columns([1, 3])
-        with file_col1:
+        with plus_col:
+            # 用空行把加号按钮压到输入框底部附近
+            st.write("")
+            st.write("")
+            show_uploader = st.button(
+                "➕",
+                key=f"chat_plus_{st.session_state.chat_refresh_key}",
+                use_container_width=True,
+                help="添加文件",
+            )
+            if show_uploader:
+                st.session_state.show_chat_uploader = True
+                st.session_state.chat_refresh_key += 1
+                st.rerun()
+
+        with send_col:
+            st.write("")
+            st.write("")
+            st.button(
+                "➤",
+                key=f"chat_send_{st.session_state.chat_refresh_key}",
+                type="primary",
+                use_container_width=True,
+                on_click=on_send_message,
+                help="发送",
+            )
+
+        # --- 文件上传（点击加号后展开） ---
+        if st.session_state.get("show_chat_uploader", False):
             uploaded_chat_file = st.file_uploader(
-                "发送文件/图片/视频",
+                "选择要发送的文件",
                 type=[
                     "png",
                     "jpg",
@@ -357,29 +468,36 @@ def page_chat(is_teacher: bool):
                 label_visibility="collapsed",
             )
 
-        # --- 发送文件 ---
-        if uploaded_chat_file is not None:
-            file_ext = Path(uploaded_chat_file.name).suffix.lower()
-            if file_ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
-                file_type = "image"
-            elif file_ext in [".mp4", ".mov", ".avi"]:
-                file_type = "video"
-            else:
-                file_type = "file"
+            # 取消按钮
+            if st.button("取消上传", key=f"chat_cancel_upload_{st.session_state.chat_refresh_key}"):
+                st.session_state.show_chat_uploader = False
+                st.session_state.chat_refresh_key += 1
+                st.rerun()
 
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            saved_name = f"{timestamp}_{uploaded_chat_file.name}"
-            saved_path = UPLOAD_DIR / saved_name
-            with open(saved_path, "wb") as f:
-                f.write(uploaded_chat_file.getbuffer())
+            # 发送文件
+            if uploaded_chat_file is not None:
+                file_ext = Path(uploaded_chat_file.name).suffix.lower()
+                if file_ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
+                    file_type = "image"
+                elif file_ext in [".mp4", ".mov", ".avi"]:
+                    file_type = "video"
+                else:
+                    file_type = "file"
 
-            send_message(
-                my_id,
-                partner_id,
-                content=f"[{file_type}: {uploaded_chat_file.name}]",
-                file_path=str(saved_path),
-                file_name=uploaded_chat_file.name,
-                file_type=file_type,
-            )
-            st.session_state.chat_refresh_key += 1
-            st.rerun()
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                saved_name = f"{timestamp}_{uploaded_chat_file.name}"
+                saved_path = UPLOAD_DIR / saved_name
+                with open(saved_path, "wb") as f:
+                    f.write(uploaded_chat_file.getbuffer())
+
+                send_message(
+                    my_id,
+                    partner_id,
+                    content=f"[{file_type}: {uploaded_chat_file.name}]",
+                    file_path=str(saved_path),
+                    file_name=uploaded_chat_file.name,
+                    file_type=file_type,
+                )
+                st.session_state.show_chat_uploader = False
+                st.session_state.chat_refresh_key += 1
+                st.rerun()

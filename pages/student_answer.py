@@ -11,6 +11,17 @@ from db import get_all_exercises, save_exam_record
 from dependencies import get_grader, get_rag
 
 
+@st.cache_data(ttl=10)
+def _cached_exercises():
+    return get_all_exercises()
+
+
+@st.cache_data(ttl=60)
+def _cached_search_context(query: str, k: int = 5):
+    """缓存 RAG 检索结果，避免重复调用 Embedding API"""
+    return "\n\n".join(get_rag().search(query, k=k))
+
+
 def page_student_answer():
     """习题作答：选题 → 答题 → CoT 批改 → 结构化展示"""
     rag = get_rag()
@@ -19,7 +30,7 @@ def page_student_answer():
     st.header("习题作答")
     st.caption("查看教师发布的习题，提交答案，获取 AI 批改反馈")
 
-    exercises = get_all_exercises()
+    exercises = _cached_exercises()
     if not exercises:
         st.info("教师尚未发布习题")
         return
@@ -43,8 +54,7 @@ def page_student_answer():
 
     if st.button("提交批改", type="primary", disabled=not student_answer.strip()):
         with st.spinner("AI 正在分步骤批改..."):
-            retrieved_docs = rag.search(exercise["question"], k=5)
-            rag_context = "\n\n".join(retrieved_docs)
+            rag_context = _cached_search_context(exercise["question"], k=5)
             result = grader.grade_answer(
                 rag_context=rag_context,
                 standard_answer_points=exercise["standard_answer_points"],

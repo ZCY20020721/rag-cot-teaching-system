@@ -3,10 +3,12 @@
 页面逻辑已拆分至 pages/ 目录，本文件仅负责初始化与路由分发
 """
 
+import os
+from pathlib import Path
+
 import streamlit as st
 
 from db import init_db
-from dependencies import get_rag
 
 # ============================================================
 # 页面配置
@@ -18,15 +20,28 @@ st.set_page_config(
 )
 
 # ============================================================
-# 初始化数据库
+# 初始化数据库（只执行一次）
 # ============================================================
-init_db()
+if "db_initialized" not in st.session_state:
+    init_db()
+    st.session_state.db_initialized = True
+
+
+# ============================================================
+# 轻量辅助函数
+# ============================================================
+def _check_pdf_loaded() -> bool:
+    """检查本地是否已有向量化的教材（避免启动时加载 HuggingFace 模型）"""
+    chroma_dir = Path("./chroma_db")
+    if not chroma_dir.exists():
+        return False
+    # 只要目录里有 sqlite 文件就认为已有知识库
+    return any(chroma_dir.iterdir())
+
 
 # ============================================================
 # Session State 初始化
 # ============================================================
-rag = get_rag()
-
 defaults = {
     "logged_in": False,
     "user": None,
@@ -37,13 +52,14 @@ defaults = {
     "current_answer_points": None,
     "grading_result": None,
     "current_exercise": None,
-    "pdf_loaded": rag.get_chunks_count() > 0,
+    "pdf_loaded": _check_pdf_loaded(),
     "chat_with_id": None,
     "chat_with_name": "",
     "chat_last_id": 0,
     "chat_refresh_key": 0,
     "chat_input_text": "",
     "show_emoji": False,
+    "show_chat_uploader": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:

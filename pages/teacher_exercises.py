@@ -11,6 +11,17 @@ from db import get_all_exercises, save_exercise
 from dependencies import get_grader, get_rag
 
 
+@st.cache_data(ttl=10)
+def _cached_exercises():
+    return get_all_exercises()
+
+
+@st.cache_data(ttl=60)
+def _cached_search_context(query: str, k: int = 5):
+    """缓存 RAG 检索结果，避免重复调用 Embedding API"""
+    return "\n\n".join(get_rag().search(query, k=k))
+
+
 def page_teacher_exercises():
     """习题生成：RAG 出题 → 教师审阅 → 发布给学生"""
     rag = get_rag()
@@ -25,10 +36,9 @@ def page_teacher_exercises():
 
     if st.button("基于教材生成考题", type="primary"):
         with st.spinner("AI 正在分析教材并生成考题..."):
-            retrieved_docs = rag.search("提取核心概念和关键知识点，用于出题", k=5)
-            rag_context = "\n\n".join(retrieved_docs)
-            if rag_context and rag_context[0].startswith("[错误]"):
-                st.error(rag_context[0])
+            rag_context = _cached_search_context("提取核心概念和关键知识点，用于出题", k=5)
+            if rag_context and rag_context[0].startswith("["):
+                st.error(rag_context)
             else:
                 result = grader.generate_question(rag_context)
                 if result:
@@ -62,7 +72,7 @@ def page_teacher_exercises():
 
     st.divider()
     st.subheader("已发布习题列表")
-    exercises = get_all_exercises()
+    exercises = _cached_exercises()
     if exercises:
         for ex in exercises:
             with st.expander(f"[{ex['created_at']}] {ex['question'][:100]}..."):

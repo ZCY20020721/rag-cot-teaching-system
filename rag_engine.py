@@ -14,20 +14,37 @@ load_dotenv()
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+
+def _create_embeddings():
+    """根据环境变量选择 embedding 方案：优先云端 API，否则本地 HuggingFace"""
+    api_key = os.getenv("EMBEDDING_API_KEY")
+    base_url = os.getenv("EMBEDDING_BASE_URL")
+    model = os.getenv("EMBEDDING_MODEL")
+
+    if api_key and base_url and model:
+        return OpenAIEmbeddings(
+            model=model,
+            api_key=api_key,
+            base_url=base_url,
+            chunk_size=1000,
+        )
+
+    # 回退到本地模型（首次加载慢，但无需 API Key）
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
 
 
 class RAGEngine:
     """轻量化 RAG 检索引擎，基于 ChromaDB 本地向量存储"""
 
     def __init__(self, persist_dir: str = "./chroma_db"):
-        # 使用本地 HuggingFace 嵌入模型，完全免费，无需 API Key
-        # all-MiniLM-L6-v2: 轻量级，384维，英文为主，中英文混合也可用
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
+        self.embeddings = _create_embeddings()
 
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
