@@ -18,6 +18,32 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
+class CloudEmbeddings:
+    """自定义 Embedding 封装，直接调用云端 API，绕过 langchain (避免参数不兼容)"""
+    def __init__(self, api_key, base_url, model):
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/") + "/embeddings"
+        self.model = model
+
+    def embed_documents(self, texts):
+        import requests
+        result = []
+        batch_size = 100
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i+batch_size]
+            resp = requests.post(
+                self.base_url,
+                json={"model": self.model, "input": batch},
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=60)
+            resp.raise_for_status()
+            result.extend([item["embedding"] for item in resp.json()["data"]])
+        return result
+
+    def embed_query(self, text):
+        return self.embed_documents([text])[0]
+
+
 def _create_embeddings():
     """根据环境变量选择 embedding 方案：优先云端 API，否则本地 HuggingFace"""
     api_key = os.getenv("EMBEDDING_API_KEY")
@@ -25,12 +51,7 @@ def _create_embeddings():
     model = os.getenv("EMBEDDING_MODEL")
 
     if api_key and base_url and model:
-        return OpenAIEmbeddings(
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-            chunk_size=1000,
-        )
+        return CloudEmbeddings(api_key, base_url, model)
 
     # 回退到本地模型（首次加载慢，但无需 API Key）
     return HuggingFaceEmbeddings(

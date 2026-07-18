@@ -69,9 +69,12 @@ class CoTGrader:
         self.question_parser = PydanticOutputParser(pydantic_object=QuestionOutput)
         self.grading_parser = PydanticOutputParser(pydantic_object=GradingOutput)
 
-    def generate_question(self, rag_context: str) -> Optional[dict]:
+    def generate_question(self, rag_context: str, requirement: str = None) -> Optional[dict]:
         """基于教材内容生成考题和标准答案"""
-        prompt = QUESTION_GENERATION_PROMPT.format(rag_context=rag_context)
+        req_text = requirement if requirement and requirement.strip() else ""
+        if req_text:
+            req_text = f"\n\n【额外出题要求】\n{req_text}\n请严格按照以上要求设计题目。"
+        prompt = QUESTION_GENERATION_PROMPT.format(rag_context=rag_context + req_text)
 
         try:
             response = self.llm.invoke(prompt)
