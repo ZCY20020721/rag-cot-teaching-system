@@ -90,6 +90,15 @@ def init_db():
         )
     """)
 
+    # 用户会话表（URL token → 刷新自动恢复登录）
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -205,6 +214,36 @@ def get_all_teachers() -> List[dict]:
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+# ============================================================
+# 会话管理（URL token → 刷新自动恢复登录）
+# ============================================================
+def create_session(user_id: int) -> str:
+    """为用户创建会话令牌，返回 token 字符串"""
+    token = hashlib.sha256(os.urandom(32)).hexdigest()[:32]
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT OR REPLACE INTO sessions (token, user_id) VALUES (?, ?)",
+        (token, user_id),
+    )
+    conn.commit()
+    conn.close()
+    return token
+
+
+def get_user_by_session(token: str) -> Optional[dict]:
+    """根据会话令牌查询用户，返回用户字典或 None"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT u.* FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.token = ?",
+        (token,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 
 def get_last_message_between(user_id_1: int, user_id_2: int) -> Optional[dict]:

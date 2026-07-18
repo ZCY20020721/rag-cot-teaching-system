@@ -5,7 +5,7 @@
 
 import streamlit as st
 
-from db import login_user, register_user
+from db import create_session, login_user, register_user
 
 
 def page_login():
@@ -37,6 +37,9 @@ def page_login():
                         st.session_state.role = user["role"]
                         st.session_state.user_id = user["id"]
                         st.session_state.username = user["username"]
+                        # 持久化会话：token 写入 URL，刷新页面自动恢复
+                        sid = create_session(user["id"])
+                        st.query_params["sid"] = sid
                         if user["role"] == "student":
                             from db import get_teacher_id
 

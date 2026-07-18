@@ -10,9 +10,10 @@ def render_sidebar(defaults: dict):
     """渲染左侧边栏：用户信息 + 角色自适应菜单 + 退出按钮"""
 
     def logout():
-        """退出登录，清空 session_state"""
+        """退出登录，清空 session_state 和 URL 会话令牌"""
         for k in defaults:
             st.session_state[k] = defaults[k]
+        st.query_params.clear()
         st.rerun()
 
     with st.sidebar:

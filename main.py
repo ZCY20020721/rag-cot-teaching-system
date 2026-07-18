@@ -2,13 +2,11 @@
 基于 RAG 与 CoT 的智能教学系统 - 多角色多页面入口（精简版）
 页面逻辑已拆分至 pages/ 目录，本文件仅负责初始化与路由分发
 """
-
-import os
 from pathlib import Path
 
 import streamlit as st
 
-from db import init_db
+from db import get_user_by_session, init_db
 
 # ============================================================
 # 页面配置
@@ -63,6 +61,23 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+# ============================================================
+# 会话持久化：URL 携带 sid token，刷新页面自动恢复登录
+# ============================================================
+SID = st.query_params.get("sid", None)
+
+if not st.session_state.logged_in and SID:
+    user = get_user_by_session(SID)
+    if user:
+        st.session_state.logged_in = True
+        st.session_state.user = user
+        st.session_state.role = user["role"]
+        st.session_state.user_id = user["id"]
+        st.session_state.username = user["username"]
+        if user["role"] == "student":
+            from db import get_teacher_id
+            st.session_state.chat_with_id = get_teacher_id()
 
 # ============================================================
 # 路由分发
