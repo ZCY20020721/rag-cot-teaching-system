@@ -59,7 +59,6 @@ defaults = {
     "chat_refresh_key": 0,
     "chat_input_text": "",
     "show_emoji": False,
-    "show_chat_uploader": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:

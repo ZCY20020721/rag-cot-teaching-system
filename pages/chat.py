@@ -343,64 +343,47 @@ def page_chat(is_teacher: bool):
                         )
 
         # --- 输入区域（与表情栏等宽） ---
-        # 注入 CSS：让加号/箭头按钮内容绝对居中，箭头背景为微信绿色
         st.markdown(
             """
             <style>
-            /* 覆盖 Streamlit 主题色变量 */
-            :root {
-                --primary-color: #07C160 !important;
-            }
+            :root { --primary-color: #07C160 !important; }
 
-            /* 发送箭头：绿色背景 + 白色文字 + 内容居中 */
+            /* 发送箭头 */
             button[kind="primary"],
             button[kind="primary"]:hover,
             button[kind="primary"]:active,
             button[kind="primary"]:focus,
             button[kind="primary"]:not(:disabled) {
-                background-color: #07C160 !important;
-                background-image: none !important;
-                color: #FFFFFF !important;
-                border-color: #07C160 !important;
-                box-shadow: none !important;
-                min-height: 40px !important;
-                height: 40px !important;
-                padding: 0px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                font-size: 1.4rem !important;
-                line-height: 1 !important;
+                background-color: #07C160 !important; background-image: none !important;
+                color: #FFFFFF !important; border-color: #07C160 !important;
+                box-shadow: none !important; min-height: 40px !important; height: 40px !important;
+                padding: 0px !important; display: flex !important;
+                align-items: center !important; justify-content: center !important;
+                font-size: 1.4rem !important; line-height: 1 !important;
             }
             button[kind="primary"] * {
-                color: #FFFFFF !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                margin: 0 !important;
-                padding: 0 !important;
+                color: #FFFFFF !important; display: flex !important;
+                align-items: center !important; justify-content: center !important;
+                margin: 0 !important; padding: 0 !important;
             }
 
-            /* 加号按钮：内容居中 */
-            button[kind="secondary"],
-            button[kind="secondary"]:hover,
-            button[kind="secondary"]:active,
-            button[kind="secondary"]:focus {
-                min-height: 40px !important;
-                height: 40px !important;
-                padding: 0px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                font-size: 1.4rem !important;
-                line-height: 1 !important;
+            /* 加号文件上传器：隐藏原生界面，只显示一个 + 号 */
+            .file-btn-wrapper section[data-testid="stFileUploaderDropzone"] {
+                display: none !important;
             }
-            button[kind="secondary"] * {
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                margin: 0 !important;
-                padding: 0 !important;
+            .file-btn-wrapper button[data-testid="stFileUploader"] {
+                min-height: 40px !important; height: 40px !important; width: 100% !important;
+                padding: 0px !important; display: flex !important;
+                align-items: center !important; justify-content: center !important;
+                font-size: 1.4rem !important; line-height: 1 !important;
+                background: #f0f2f6 !important; border: 1px solid #ddd !important;
+                border-radius: 0.5rem !important;
+            }
+            .file-btn-wrapper button[data-testid="stFileUploader"] p {
+                display: none !important;
+            }
+            .file-btn-wrapper button[data-testid="stFileUploader"]::before {
+                content: "➕"; font-size: 1.4rem;
             }
             </style>
             """,
@@ -418,19 +401,18 @@ def page_chat(is_teacher: bool):
             )
 
         with plus_col:
-            # 用空行把加号按钮压到输入框底部附近
             st.write("")
             st.write("")
-            show_uploader = st.button(
+            # 用 CSS class 包裹，直接放 file_uploader，点击即选文件
+            st.markdown('<div class="file-btn-wrapper">', unsafe_allow_html=True)
+            uploaded_chat_file = st.file_uploader(
                 "➕",
-                key=f"chat_plus_{st.session_state.chat_refresh_key}",
-                use_container_width=True,
-                help="添加文件",
+                type=["png", "jpg", "jpeg", "gif", "webp", "mp4", "mov", "avi",
+                      "pdf", "docx", "txt", "zip", "rar", "pptx"],
+                key=f"chat_file_{st.session_state.chat_refresh_key}",
+                label_visibility="collapsed",
             )
-            if show_uploader:
-                st.session_state.show_chat_uploader = True
-                st.session_state.chat_refresh_key += 1
-                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
 
         with send_col:
             st.write("")
@@ -444,38 +426,8 @@ def page_chat(is_teacher: bool):
                 help="发送",
             )
 
-        # --- 文件上传（点击加号后展开） ---
-        if st.session_state.get("show_chat_uploader", False):
-            uploaded_chat_file = st.file_uploader(
-                "选择要发送的文件",
-                type=[
-                    "png",
-                    "jpg",
-                    "jpeg",
-                    "gif",
-                    "webp",
-                    "mp4",
-                    "mov",
-                    "avi",
-                    "pdf",
-                    "docx",
-                    "txt",
-                    "zip",
-                    "rar",
-                    "pptx",
-                ],
-                key=f"chat_file_{st.session_state.chat_refresh_key}",
-                label_visibility="collapsed",
-            )
-
-            # 取消按钮
-            if st.button("取消上传", key=f"chat_cancel_upload_{st.session_state.chat_refresh_key}"):
-                st.session_state.show_chat_uploader = False
-                st.session_state.chat_refresh_key += 1
-                st.rerun()
-
-            # 发送文件
-            if uploaded_chat_file is not None:
+        # --- 选中文件后直接发送 ---
+        if uploaded_chat_file is not None:
                 file_ext = Path(uploaded_chat_file.name).suffix.lower()
                 if file_ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]:
                     file_type = "image"
@@ -498,6 +450,5 @@ def page_chat(is_teacher: bool):
                     file_name=uploaded_chat_file.name,
                     file_type=file_type,
                 )
-                st.session_state.show_chat_uploader = False
                 st.session_state.chat_refresh_key += 1
                 st.rerun()
